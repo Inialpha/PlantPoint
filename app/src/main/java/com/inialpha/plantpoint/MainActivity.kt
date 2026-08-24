@@ -25,6 +25,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,9 +49,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    val factory = remember {
-                        PlantPointViewModelFactory(database)
-                    }
+                    val factory = remember { PlantPointViewModelFactory(database) }
                     val viewModel: PlantPointViewModel = viewModel(factory = factory)
                     PlantPointApp(viewModel)
                 }
@@ -76,10 +75,7 @@ private fun PlantPointApp(viewModel: PlantPointViewModel) {
     var selectedFarm by remember { mutableStateOf<FarmEntity?>(null) }
 
     if (selectedFarm == null) {
-        FarmListScreen(
-            viewModel = viewModel,
-            onOpenFarm = { selectedFarm = it }
-        )
+        FarmListScreen(viewModel = viewModel, onOpenFarm = { selectedFarm = it })
     } else {
         FarmDetailScreen(
             farm = selectedFarm!!,
@@ -89,6 +85,7 @@ private fun PlantPointApp(viewModel: PlantPointViewModel) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FarmListScreen(
     viewModel: PlantPointViewModel,
@@ -98,26 +95,17 @@ private fun FarmListScreen(
     var showAddFarm by remember { mutableStateOf(false) }
 
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("PlantPoint") })
-        }
+        topBar = { TopAppBar(title = { Text("PlantPoint") }) }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(20.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text("My Farms", style = MaterialTheme.typography.headlineMedium)
             Text(
-                text = "My Farms",
-                style = MaterialTheme.typography.headlineMedium
-            )
-            Text(
-                text = "Your farms are stored on this device and remain available offline.",
+                "Your farms are stored on this device and remain available offline.",
                 style = MaterialTheme.typography.bodyMedium
             )
-
             Button(
                 onClick = { showAddFarm = true },
                 enabled = farms.size < PlantPointViewModel.MAX_FARMS,
@@ -125,13 +113,9 @@ private fun FarmListScreen(
             ) {
                 Text(if (farms.size < PlantPointViewModel.MAX_FARMS) "Add Farm" else "Maximum of 3 Farms")
             }
-
             if (farms.isEmpty()) {
                 Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = "No farms yet. Add your first farm to begin.",
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                Text("No farms yet. Add your first farm to begin.", style = MaterialTheme.typography.bodyLarge)
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
@@ -148,25 +132,18 @@ private fun FarmListScreen(
             }
         }
     }
-
     if (showAddFarm) {
         AddFarmDialog(
             onDismiss = { showAddFarm = false },
             onAdd = { name ->
-                viewModel.addFarm(name) { success ->
-                    if (success) showAddFarm = false
-                }
+                viewModel.addFarm(name) { success -> if (success) showAddFarm = false }
             }
         )
     }
 }
 
 @Composable
-private fun FarmCard(
-    farm: FarmEntity,
-    onOpen: () -> Unit,
-    onDelete: () -> Unit
-) {
+private fun FarmCard(farm: FarmEntity, onOpen: () -> Unit, onDelete: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(farm.name, style = MaterialTheme.typography.titleLarge)
@@ -181,31 +158,26 @@ private fun FarmCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FarmDetailScreen(
     farm: FarmEntity,
     viewModel: PlantPointViewModel,
     onBack: () -> Unit
 ) {
-    val crops by viewModel.cropsForFarm(farm.id)
-        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val crops by viewModel.cropsForFarm(farm.id).collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddCrop by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(farm.name) },
-                navigationIcon = {
-                    TextButton(onClick = onBack) { Text("Back") }
-                }
+                navigationIcon = { TextButton(onClick = onBack) { Text("Back") } }
             )
         }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(20.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text("Crops", style = MaterialTheme.typography.headlineMedium)
@@ -213,28 +185,19 @@ private fun FarmDetailScreen(
                 "Each crop keeps its own planting configuration and records.",
                 style = MaterialTheme.typography.bodyMedium
             )
-
-            Button(
-                onClick = { showAddCrop = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Button(onClick = { showAddCrop = true }, modifier = Modifier.fillMaxWidth()) {
                 Text("Add Crop")
             }
-
             HorizontalDivider()
-
             if (crops.isEmpty()) {
                 Text("No crops have been added to this farm yet.")
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(crops, key = { it.id }) { crop ->
                         CropCard(crop = crop, onDelete = { viewModel.deleteCrop(crop) })
                     }
                 }
             }
-
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(
                 onClick = { /* Phase 3: start planting session */ },
@@ -244,14 +207,11 @@ private fun FarmDetailScreen(
             }
         }
     }
-
     if (showAddCrop) {
         AddCropDialog(
             onDismiss = { showAddCrop = false },
             onAdd = { name, spacing ->
-                viewModel.addCrop(farm.id, name, spacing) { success ->
-                    if (success) showAddCrop = false
-                }
+                viewModel.addCrop(farm.id, name, spacing) { success -> if (success) showAddCrop = false }
             }
         )
     }
@@ -261,9 +221,7 @@ private fun FarmDetailScreen(
 private fun CropCard(crop: CropEntity, onDelete: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
@@ -279,12 +237,8 @@ private fun CropCard(crop: CropEntity, onDelete: () -> Unit) {
 }
 
 @Composable
-private fun AddFarmDialog(
-    onDismiss: () -> Unit,
-    onAdd: (String) -> Unit
-) {
+private fun AddFarmDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
     var name by remember { mutableStateOf("") }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Farm") },
@@ -297,25 +251,17 @@ private fun AddFarmDialog(
             )
         },
         confirmButton = {
-            Button(onClick = { onAdd(name) }, enabled = name.isNotBlank()) {
-                Text("Save")
-            }
+            Button(onClick = { onAdd(name) }, enabled = name.isNotBlank()) { Text("Save") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
 @Composable
-private fun AddCropDialog(
-    onDismiss: () -> Unit,
-    onAdd: (String, Double) -> Unit
-) {
+private fun AddCropDialog(onDismiss: () -> Unit, onAdd: (String, Double) -> Unit) {
     var name by remember { mutableStateOf("") }
     var spacing by remember { mutableStateOf("") }
     val spacingValue = spacing.toDoubleOrNull()
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Crop") },
@@ -339,13 +285,9 @@ private fun AddCropDialog(
             Button(
                 onClick = { onAdd(name, spacingValue ?: 0.0) },
                 enabled = name.isNotBlank() && spacingValue != null && spacingValue > 0.0
-            ) {
-                Text("Save")
-            }
+            ) { Text("Save") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 

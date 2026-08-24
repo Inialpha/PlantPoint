@@ -34,6 +34,32 @@ class PlantingPointViewModel(
         }
     }
 
+    fun recordPlantedTarget(
+        farmId: String,
+        cropId: String,
+        latitude: Double,
+        longitude: Double,
+        actualLatitude: Double,
+        actualLongitude: Double
+    ) {
+        viewModelScope.launch {
+            val nextSequence = (plantingPointDao.maxSequenceForCrop(cropId) ?: 0) + 1
+            plantingPointDao.insert(
+                PlantingPointEntity(
+                    farmId = farmId,
+                    cropId = cropId,
+                    sequenceNumber = nextSequence,
+                    plannedLatitude = latitude,
+                    plannedLongitude = longitude,
+                    actualLatitude = actualLatitude,
+                    actualLongitude = actualLongitude,
+                    status = PlantingPointEntity.STATUS_PLANTED,
+                    plantedAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
     fun markPlanted(
         point: PlantingPointEntity,
         actualLatitude: Double,

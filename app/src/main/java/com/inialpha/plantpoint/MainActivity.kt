@@ -12,13 +12,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -34,7 +30,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,9 +38,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.inialpha.plantpoint.data.location.LocationSnapshot
+import com.inialpha.plantpoint.data.local.FarmEntity
+import com.inialpha.plantpoint.data.local.PlantPointDatabase
+import com.inialpha.plantpoint.ui.LocationViewModel
+import com.inialpha.plantpoint.ui.PlantPointViewModel
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
@@ -55,35 +55,41 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private class PlantPointViewModelFactory(context: android.content.Context) : ViewModelProvider.Factory {
+    private val database = PlantPointDatabase.getInstance(context.applicationContext)
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(PlantPointViewModel::class.java)) {
+            return PlantPointViewModel(database.farmDao(), database.cropDao()) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")
+    }
+}
+
 @Composable
 private fun PlantPointApp() {
-    Surface(modifier = Modifier.fillMaxSize()) {
-        FarmListScreen()
-    }
+    Surface(modifier = Modifier.fillMaxSize()) { FarmListScreen() }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FarmListScreen(
-    farmViewModel: PlantPointViewModel = viewModel()
-) {
+private fun FarmListScreen() {
+    val context = LocalContext.current
+    val farmViewModel: PlantPointViewModel = viewModel(
+        factory = PlantPointViewModelFactory(context)
+    )
     val farms by farmViewModel.farms.collectAsStateWithLifecycle()
     var showAddFarm by remember { mutableStateOf(false) }
-    var selectedFarmId by remember { mutableStateOf<Long?>(null) }
+    var selectedFarmId by remember { mutableStateOf<String?>(null) }
     val selectedFarm = farms.firstOrNull { it.id == selectedFarmId }
 
     if (selectedFarm != null) {
-        FarmDetailScreen(
-            farm = selectedFarm,
-            onBack = { selectedFarmId = null },
-            onOpenLocationDiagnostics = { /* Navigation is added without replacing Phase 2 state. */ }
-        )
+        FarmDetailScreen(farm = selectedFarm, onBack = { selectedFarmId = null })
         return
     }
 
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("PlantPoint") }) }
-    ) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text("PlantPoint") }) }) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -93,7 +99,10 @@ private fun FarmListScreen(
                 Text("No farms yet. Add your first farm to begin.")
             } else {
                 farms.forEach { farm ->
-                    Card(onClick = { selectedFarmId = farm.id }, modifier = Modifier.fillMaxWidth()) {
+                    Card(
+                        onClick = { selectedFarmId = farm.id },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -106,9 +115,11 @@ private fun FarmListScreen(
             }
             Button(
                 onClick = { showAddFarm = true },
-                enabled = farms.size < 3,
+                enabled = farms.size < PlantPointViewModel.MAX_FARMS,
                 modifier = Modifier.fillMaxWidth()
-            ) { Text(if (farms.size < 3) "Add Farm" else "Maximum of 3 Farms") }
+            ) {
+                Text(if (farms.size < PlantPointViewModel.MAX_FARMS) "Add Farm" else "Maximum of 3 Farms")
+            }
         }
     }
 
@@ -117,9 +128,7 @@ private fun FarmListScreen(
         AlertDialog(
             onDismissRequest = { showAddFarm = false },
             title = { Text("Add Farm") },
-            text = {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Farm name") })
-            },
+            text = { OutlinedTextField(name, { name = it }, label = { Text("Farm name") }) },
             confirmButton = {
                 TextButton(onClick = {
                     if (name.isNotBlank()) {
@@ -135,13 +144,12 @@ private fun FarmListScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FarmDetailScreen(
-    farm: FarmEntity,
-    onBack: () -> Unit,
-    onOpenLocationDiagnostics: () -> Unit,
-    farmViewModel: PlantPointViewModel = viewModel()
-) {
-    val crops by farmViewModel.cropsForFarm(farm.id).collectAsState(initial = emptyList())
+private fun FarmDetailScreen(farm: FarmEntity, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val farmViewModel: PlantPointViewModel = viewModel(
+        factory = PlantPointViewModelFactory(context)
+    )
+    val crops by farmViewModel.cropsForFarm(farm.id).collectAsStateWithLifecycle()
     var showAddCrop by remember { mutableStateOf(false) }
     var showDiagnostics by remember { mutableStateOf(false) }
 
@@ -166,7 +174,10 @@ private fun FarmDetailScreen(
             if (crops.isEmpty()) Text("No crops added yet.")
             crops.forEach { crop ->
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Column {
                             Text(crop.name, style = MaterialTheme.typography.titleMedium)
                             Text("Spacing: ${crop.spacingMeters} m")
@@ -176,12 +187,15 @@ private fun FarmDetailScreen(
                 }
             }
             Button(onClick = { showAddCrop = true }, modifier = Modifier.fillMaxWidth()) { Text("Add Crop") }
-            OutlinedButton(onClick = { showDiagnostics = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Check Location & Sensors")
-            }
-            Button(onClick = { /* Phase 4 */ }, enabled = crops.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
-                Text("Start Planting")
-            }
+            OutlinedButton(
+                onClick = { showDiagnostics = true },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Check Location & Sensors") }
+            Button(
+                onClick = { /* Phase 4 */ },
+                enabled = crops.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Start Planting") }
         }
     }
 
@@ -193,8 +207,8 @@ private fun FarmDetailScreen(
             title = { Text("Add Crop") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Crop name") })
-                    OutlinedTextField(value = spacing, onValueChange = { spacing = it }, label = { Text("Spacing in metres") })
+                    OutlinedTextField(name, { name = it }, label = { Text("Crop name") })
+                    OutlinedTextField(spacing, { spacing = it }, label = { Text("Spacing in metres") })
                 }
             },
             confirmButton = {
@@ -220,7 +234,9 @@ private fun LocationDiagnosticsScreen(onBack: () -> Unit) {
     val orientation by locationViewModel.orientation.collectAsStateWithLifecycle()
     val locationAvailable by locationViewModel.locationAvailable.collectAsStateWithLifecycle()
     var permissionGranted by remember { mutableStateOf(hasFineLocationPermission(context)) }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
         permissionGranted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
     }
 
@@ -230,9 +246,10 @@ private fun LocationDiagnosticsScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Location & Sensors") }, navigationIcon = {
-                TextButton(onClick = onBack) { Text("Back") }
-            })
+            TopAppBar(
+                title = { Text("Location & Sensors") },
+                navigationIcon = { TextButton(onClick = onBack) { Text("Back") } }
+            )
         }
     ) { padding ->
         Column(
@@ -243,7 +260,12 @@ private fun LocationDiagnosticsScreen(onBack: () -> Unit) {
             if (!permissionGranted) {
                 Text("Precise location permission is required for planting measurements.")
                 Button(onClick = {
-                    permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                    permissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
                 }) { Text("Grant location permission") }
             } else {
                 Text("Location permission: granted")
@@ -278,6 +300,9 @@ private fun LocationDiagnosticsScreen(onBack: () -> Unit) {
 }
 
 private fun hasFineLocationPermission(context: android.content.Context): Boolean =
-    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
 
 private fun formatCoordinate(value: Double): String = "%.7f".format(Locale.US, value)

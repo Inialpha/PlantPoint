@@ -27,7 +27,11 @@ class PlantingPointViewModel(
                 cropId = cropId,
                 sequenceNumber = nextSequence,
                 plannedLatitude = latitude,
-                plannedLongitude = longitude
+                plannedLongitude = longitude,
+                actualLatitude = latitude,
+                actualLongitude = longitude,
+                status = PlantingPointEntity.STATUS_PLANTED,
+                plantedAt = System.currentTimeMillis()
             )
             plantingPointDao.insert(point)
             onCreated(point)

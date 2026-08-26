@@ -622,6 +622,7 @@ private fun GridCell(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlantingHistoryScreen(crop: CropEntity, onBack: () -> Unit) {
     val context = LocalContext.current

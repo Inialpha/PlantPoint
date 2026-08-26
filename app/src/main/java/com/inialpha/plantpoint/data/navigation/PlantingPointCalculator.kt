@@ -48,7 +48,11 @@ object PlantingPointCalculator {
 
 enum class CardinalDirection(val label: String, val bearingDegrees: Double) {
     NORTH("North", 0.0),
+    NORTHEAST("Northeast", 45.0),
     EAST("East", 90.0),
+    SOUTHEAST("Southeast", 135.0),
     SOUTH("South", 180.0),
-    WEST("West", 270.0)
+    SOUTHWEST("Southwest", 225.0),
+    WEST("West", 270.0),
+    NORTHWEST("Northwest", 315.0)
 }

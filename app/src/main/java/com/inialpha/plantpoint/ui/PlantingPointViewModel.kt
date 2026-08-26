@@ -13,6 +13,10 @@ class PlantingPointViewModel(
     fun pointsForCrop(cropId: String): Flow<List<PlantingPointEntity>> =
         plantingPointDao.observeForCrop(cropId)
 
+    /** Points recorded for other crops on the same farm, for cross-crop proximity warnings. */
+    fun otherCropPointsFor(farmId: String, cropId: String): Flow<List<PlantingPointEntity>> =
+        plantingPointDao.observeOtherCropPoints(farmId, cropId)
+
     fun createStartingPoint(
         farmId: String,
         cropId: String,
@@ -32,6 +36,39 @@ class PlantingPointViewModel(
                 actualLongitude = longitude,
                 status = PlantingPointEntity.STATUS_PLANTED,
                 plantedAt = System.currentTimeMillis()
+            )
+            plantingPointDao.insert(point)
+            onCreated(point)
+        }
+    }
+
+    /**
+     * Establishes the farm/crop's grid origin (row = 0, column = 0) at the farmer's current
+     * location, with the reported location accuracy recorded alongside it.
+     */
+    fun createGridOrigin(
+        farmId: String,
+        cropId: String,
+        latitude: Double,
+        longitude: Double,
+        accuracyMeters: Double?,
+        onCreated: (PlantingPointEntity) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val nextSequence = (plantingPointDao.maxSequenceForCrop(cropId) ?: 0) + 1
+            val point = PlantingPointEntity(
+                farmId = farmId,
+                cropId = cropId,
+                sequenceNumber = nextSequence,
+                plannedLatitude = latitude,
+                plannedLongitude = longitude,
+                actualLatitude = latitude,
+                actualLongitude = longitude,
+                status = PlantingPointEntity.STATUS_PLANTED,
+                plantedAt = System.currentTimeMillis(),
+                gridRow = 0,
+                gridColumn = 0,
+                recordedAccuracyMeters = accuracyMeters
             )
             plantingPointDao.insert(point)
             onCreated(point)
@@ -59,6 +96,39 @@ class PlantingPointViewModel(
                     actualLongitude = actualLongitude,
                     status = PlantingPointEntity.STATUS_PLANTED,
                     plantedAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    /** Records a planted point at a specific planting-grid cell (row, column). */
+    fun plantGridPoint(
+        farmId: String,
+        cropId: String,
+        row: Int,
+        column: Int,
+        plannedLatitude: Double,
+        plannedLongitude: Double,
+        actualLatitude: Double,
+        actualLongitude: Double,
+        accuracyMeters: Double?
+    ) {
+        viewModelScope.launch {
+            val nextSequence = (plantingPointDao.maxSequenceForCrop(cropId) ?: 0) + 1
+            plantingPointDao.insert(
+                PlantingPointEntity(
+                    farmId = farmId,
+                    cropId = cropId,
+                    sequenceNumber = nextSequence,
+                    plannedLatitude = plannedLatitude,
+                    plannedLongitude = plannedLongitude,
+                    actualLatitude = actualLatitude,
+                    actualLongitude = actualLongitude,
+                    status = PlantingPointEntity.STATUS_PLANTED,
+                    plantedAt = System.currentTimeMillis(),
+                    gridRow = row,
+                    gridColumn = column,
+                    recordedAccuracyMeters = accuracyMeters
                 )
             )
         }

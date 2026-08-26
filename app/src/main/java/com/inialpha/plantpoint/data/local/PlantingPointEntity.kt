@@ -20,7 +20,14 @@ data class PlantingPointEntity(
     val actualLongitude: Double? = null,
     val status: String = STATUS_PLANNED,
     val createdAt: Long = System.currentTimeMillis(),
-    val plantedAt: Long? = null
+    val plantedAt: Long? = null,
+    // Logical planting-grid coordinates. The farm/crop starting point is always (0, 0);
+    // see PlantingGridEngine for how these map to plannedLatitude/plannedLongitude.
+    val gridRow: Int = 0,
+    val gridColumn: Int = 0,
+    // Location accuracy (meters) reported by the device at the moment this point was recorded,
+    // if any. Stored so past records can be interpreted with the confidence they were taken at.
+    val recordedAccuracyMeters: Double? = null
 ) {
     companion object {
         const val STATUS_PLANNED = "PLANNED"
